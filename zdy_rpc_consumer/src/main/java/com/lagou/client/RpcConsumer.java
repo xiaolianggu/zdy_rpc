@@ -1,5 +1,15 @@
 package com.lagou.client;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import com.lagou.serialize.JSONSerializer;
+import com.lagou.serialize.RpcEncoder;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -10,12 +20,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
-
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class RpcConsumer {
 
@@ -34,9 +38,14 @@ public class RpcConsumer {
                 if(userClientHandler == null){
                  initClient();
                 }
-
+                RpcRequest request = new RpcRequest();
+                request.setRequestId(UUID.randomUUID().toString());
+                request.setClassName(serviceClass.getCanonicalName());
+                request.setParameters(args);
+                request.setParameterTypes(method.getParameterTypes());
+                request.setMethodName(method.getName());
                 // 设置参数
-                userClientHandler.setPara(providerName+args[0]);
+                userClientHandler.setPara(request);
 
                 // 去服务端请求数据
 
@@ -62,13 +71,14 @@ public class RpcConsumer {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     protected void initChannel(SocketChannel ch) throws Exception {
                         ChannelPipeline pipeline = ch.pipeline();
-                        pipeline.addLast(new StringEncoder());
+                        //pipeline.addLast(new StringEncoder());
                         pipeline.addLast(new StringDecoder());
+                        pipeline.addLast( new RpcEncoder(RpcRequest.class, new JSONSerializer()));
                         pipeline.addLast(userClientHandler);
                     }
                 });
 
-        bootstrap.connect("127.0.0.1",8990).sync();
+        bootstrap.connect("127.0.0.1",8080).sync();
 
     }
 

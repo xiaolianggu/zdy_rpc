@@ -9,7 +9,7 @@ public class UserClientHandler extends ChannelInboundHandlerAdapter implements C
 
     private ChannelHandlerContext context;
     private String result;
-    private String para;
+    private Object para;
 
 
     public void channelActive(ChannelHandlerContext ctx) {
@@ -38,7 +38,7 @@ public class UserClientHandler extends ChannelInboundHandlerAdapter implements C
     /*
      设置参数
      */
-    void setPara(String para) {
+    void setPara(Object para) {
         this.para = para;
     }
 

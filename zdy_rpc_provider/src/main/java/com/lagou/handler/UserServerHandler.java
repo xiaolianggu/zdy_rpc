@@ -1,6 +1,11 @@
 package com.lagou.handler;
 
+import java.lang.reflect.Method;
+
+import com.alibaba.fastjson.JSON;
+import com.lagou.config.SpringContextUtil;
 import com.lagou.service.UserServiceImpl;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
@@ -17,7 +22,14 @@ public class UserServerHandler extends ChannelInboundHandlerAdapter {
             String result = userService.sayHello(msg.toString().substring(msg.toString().lastIndexOf("#") + 1));
             ctx.writeAndFlush(result);
         }
-
-
+        
+        
+        RpcRequest request = JSON.parseObject(msg.toString(), RpcRequest.class);
+        Class<?> clazz = Class.forName(request.getClassName());
+        Object obj = SpringContextUtil.getBean(clazz);
+        //Object obj =  clazz.newInstance();
+        Method method = clazz.getMethod(request.getMethodName(),request.getParameterTypes());//得到方法对象
+        Object result = method.invoke(obj, request.getParameters());
+        ctx.writeAndFlush(result);
     }
 }

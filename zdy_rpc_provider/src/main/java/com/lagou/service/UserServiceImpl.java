@@ -1,15 +1,8 @@
 package com.lagou.service;
 
-import com.lagou.handler.UserServerHandler;
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
+import org.springframework.stereotype.Service;
 
+@Service
 public class UserServiceImpl implements UserService {
 
     public String sayHello(String word) {
@@ -18,7 +11,7 @@ public class UserServiceImpl implements UserService {
     }
 
     //hostName:ip地址  port:端口号
-    public static void startServer(String hostName,int port) throws InterruptedException {
+   /* public static void startServer(String hostName,int port) throws InterruptedException {
 
         NioEventLoopGroup bossGroup = new NioEventLoopGroup();
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -38,6 +31,6 @@ public class UserServiceImpl implements UserService {
         serverBootstrap.bind(hostName,port).sync();
 
 
-    }
+    }*/
 
 }
