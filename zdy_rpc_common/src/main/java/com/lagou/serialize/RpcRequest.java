@@ -1,4 +1,4 @@
-package com.lagou.client;
+package com.lagou.serialize;
 
 public class RpcRequest {
 	/**
@@ -18,7 +18,7 @@ public class RpcRequest {
 
 	/**
 	 * 
-	 * 方法名
+	 * 方法�?
 	 * 
 	 */
 

@@ -2,8 +2,8 @@ package com.lagou.handler;
 
 import java.lang.reflect.Method;
 
-import com.alibaba.fastjson.JSON;
 import com.lagou.config.SpringContextUtil;
+import com.lagou.serialize.RpcRequest;
 import com.lagou.service.UserServiceImpl;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -24,7 +24,7 @@ public class UserServerHandler extends ChannelInboundHandlerAdapter {
         }
         
         
-        RpcRequest request = JSON.parseObject(msg.toString(), RpcRequest.class);
+        RpcRequest request = (RpcRequest)msg;
         Class<?> clazz = Class.forName(request.getClassName());
         Object obj = SpringContextUtil.getBean(clazz);
         //Object obj =  clazz.newInstance();

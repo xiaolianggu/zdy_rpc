@@ -4,6 +4,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import com.lagou.handler.UserServerHandler;
+import com.lagou.serialize.JSONSerializer;
+import com.lagou.serialize.RpcDecoder;
+import com.lagou.serialize.RpcRequest;
+import com.lagou.service.UserService;
+import com.lagou.zk.ZooKeeperSession;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
@@ -11,7 +16,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
 @SpringBootApplication
@@ -20,7 +24,8 @@ public class RpcProviderApplication {
 
     public static void main(String[] args) throws InterruptedException {
         SpringApplication.run(RpcProviderApplication.class, args);
-        startServer("127.0.0.1",8080);
+        startServer("127.0.0.1",8088);
+        System.out.println(UserService.class.getName());
     }
 
     
@@ -37,13 +42,14 @@ public class RpcProviderApplication {
                     protected void initChannel(SocketChannel ch) throws Exception {
                         ChannelPipeline pipeline = ch.pipeline();
                         pipeline.addLast(new StringEncoder());
-                        pipeline.addLast(new StringDecoder());
+                        pipeline.addLast(new RpcDecoder(RpcRequest.class, new JSONSerializer()));
                         pipeline.addLast(new UserServerHandler());
 
                     }
                 });
         serverBootstrap.bind(hostName,port).sync();
-
-
+        ZooKeeperSession.getInstance().init();
+        ZooKeeperSession.getInstance().register(UserService.class.getName(), hostName+":"+port);
+       System.out.println("启动成功");
     }
 }
