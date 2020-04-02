@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import com.lagou.handler.UserServerHandler;
+import com.lagou.jdbc.JDBCHelper;
 import com.lagou.serialize.JSONSerializer;
 import com.lagou.serialize.RpcDecoder;
 import com.lagou.serialize.RpcRequest;
@@ -50,6 +51,7 @@ public class RpcProviderApplication {
         serverBootstrap.bind(hostName,port).sync();
         ZooKeeperSession.getInstance().init();
         ZooKeeperSession.getInstance().register(UserService.class.getName(), hostName+":"+port);
+        JDBCHelper.getInstance();
        System.out.println("启动成功");
     }
 }

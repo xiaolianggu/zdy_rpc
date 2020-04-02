@@ -1,10 +1,9 @@
 package com.lagou.zk;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.curator.RetryPolicy;
@@ -19,6 +18,8 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
 
 import com.alibaba.fastjson.JSON;
+import com.lagou.client.ClientConnect;
+import com.lagou.service.UserService;
 
 /**
  * ZooKeeperSession
@@ -29,8 +30,7 @@ import com.alibaba.fastjson.JSON;
 public class ZooKeeperSession {
 
 	private static CuratorFramework client;
-	private static Map<String, Set> serviceCache = new ConcurrentHashMap<String, Set>();
-
+	public static Map<String, List<ClientConnect>> clientConnectCache = new ConcurrentHashMap<String, List<ClientConnect>>();
 	public ZooKeeperSession() {
 
 		RetryPolicy exponentialBackoffRetry = new ExponentialBackoffRetry(1000, 3);
@@ -80,16 +80,67 @@ public class ZooKeeperSession {
 		}
 		return null;
 	}
+	
+	
+	public void updateNodeData(String path,String content) {
+		 try {
+			client.setData().forPath(path,content.getBytes());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
+	public String getNodeData(String path) {
+		 try {
+			byte[] bytes = client.getData().forPath(path);
+			return new String(bytes);
+		} catch (Exception e) {
+			if (e.getMessage().indexOf("NoNode") < 0) {
+				System.out.println("节点不存在" + path);
+			}
+		}
+		return null;
+	}
+	
+	
+	public void createOrUpdateNode(String path, String content) {
+		try {
+			Stat stat = client.checkExists().forPath(path);
+			// 如果不存在这个路径，stat为null，创建新的节点路径。
+			if (stat == null) {
+				client.create().creatingParentsIfNeeded().withMode(CreateMode.EPHEMERAL).forPath(path,
+						content.getBytes());
+			}else {
+				client.setData().forPath(path,content.getBytes());
+			}
+		} catch (Exception e) {
+			if (e.getMessage().indexOf("NodeExists") < 0) {
+				System.out.println("节点已存在" + path);
+			}
+		}
+	}
+	
 	public void loadData(String serviceName) {
 		List<String> addressList = getServiceAddr(serviceName);
 		if (addressList != null && !addressList.isEmpty()) {
-			Set<String> set = new HashSet<String>();
+			List<ClientConnect> clientConnectList = new ArrayList<ClientConnect>();
 			for (String address : addressList) {
-				set.add(address);
-			}
-			serviceCache.put(serviceName, set);
+				ClientConnect clientConnect = new ClientConnect();
+				String[] addressSplited = address.split(":");
+				clientConnect.initClient(addressSplited[0], Integer.parseInt(addressSplited[1]));
+				clientConnectList.add(clientConnect);
+			} 
+			clientConnectCache.put(serviceName, clientConnectList);
+		}else {
+			System.out.println("没有找到提供者");
 		}
+			
+			
+	}
+	
+	public void addListener(String path,TreeCacheListener treeCacheListener) {
+		TreeCache treeCache = new TreeCache(client, path);
+		treeCache.getListenable().addListener(treeCacheListener);
 	}
 
 	public void addListener(String serviceName) {
@@ -104,21 +155,42 @@ public class ZooKeeperSession {
 				case NODE_ADDED:
 					System.out.println("Node add " + nodeName);
 					if (pathSplited.length == 4) {
-						Set<String> address = serviceCache.get(serviceName);
-						if (address == null) {
-							address = new HashSet<String>();
+						List<ClientConnect> clientConnectList = clientConnectCache.get(serviceName);
+						if(clientConnectList==null) {
+							clientConnectList = new ArrayList<ClientConnect>();
 						}
-						address.add(nodeName);
-						serviceCache.put(serviceName, address);
+						
+						String[] addressSplited = nodeName.split(":");
+						boolean isExsit = false;
+						for(ClientConnect connect:clientConnectList) {
+							String ipAndPort = connect.getIp()+":"+connect.getPort();
+							if(ipAndPort.equals(nodeName)) {
+								isExsit = true;
+							}
+						}
+						if(!isExsit) {
+							ClientConnect clientConnect = new ClientConnect();
+							clientConnect.initClient(addressSplited[0], Integer.parseInt(addressSplited[1]));
+							clientConnectList.add(clientConnect);
+							clientConnectCache.put(serviceName, clientConnectList);
+						}
 					}
 					break;
 				case NODE_REMOVED:
 					System.out.println("Node removed " + nodeName);
 					if (pathSplited.length == 4) {
-						Set<String> addresses = serviceCache.get(serviceName);
-						if (addresses != null) {
-							addresses.remove(nodeName);
-							serviceCache.put(serviceName, addresses);
+						List<ClientConnect> clientConnectList = clientConnectCache.get(serviceName);
+						if(clientConnectList!=null&&!clientConnectList.isEmpty()) {
+							List<ClientConnect> newClientConnectList =new ArrayList<ClientConnect>();
+							for(ClientConnect clientConnect:clientConnectList) {
+								String ipAndPort = clientConnect.getIp()+":"+clientConnect.getPort();
+								if(ipAndPort.equals(nodeName)) {
+									clientConnect.close();
+								}else {
+									newClientConnectList.add(clientConnect);
+								}
+							}
+							clientConnectCache.put(serviceName, newClientConnectList);
 						}
 					}
 					break;
@@ -173,31 +245,7 @@ public class ZooKeeperSession {
 	}
 
 	public static void main(String[] args) throws InterruptedException {
-		ZooKeeperSession.getInstance().addListener("service1");
-		ZooKeeperSession.getInstance().register("service1", "127.0.0.1");
-	    ZooKeeperSession.getInstance().loadData("service1");
-		Thread.sleep(2000);
-		for (Map.Entry<String, Set> entry : serviceCache.entrySet()) {
-			String mapKey = entry.getKey();
-			Set mapValue = entry.getValue();
-			System.out.println(mapKey + ":-----------" + mapValue);
-		}
-
-		ZooKeeperSession.getInstance().register("service1", "127.0.0.2");
-		Thread.sleep(2000);
-		for (Map.Entry<String, Set> entry : serviceCache.entrySet()) {
-			String mapKey = entry.getKey();
-			Set mapValue = entry.getValue();
-			System.out.println(mapKey + ":============" + mapValue);
-		}
-		System.out.println(ZooKeeperSession.getInstance().getServiceAddr("service1"));
-		ZooKeeperSession.getInstance().deRegister("service1", "127.0.0.2");
-		Thread.sleep(2000);
-		for (Map.Entry<String, Set> entry : serviceCache.entrySet()) {
-			String mapKey = entry.getKey();
-			Set mapValue = entry.getValue();
-			System.out.println(mapKey + ":============" + mapValue);
-		}
-		System.out.println(ZooKeeperSession.getInstance().getServiceAddr("service1"));
+		ZooKeeperSession.getInstance().deRegister(UserService.class.getName(), "127.0.0.1:8088");
+		//ZooKeeperSession.getInstance().register(UserService.class.getName(), "127.0.0.1:8088");
 	}
 }

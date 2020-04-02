@@ -9,6 +9,8 @@ public class ClientBootStrap {
 
     public static void main(String[] args) throws InterruptedException {
     	ZooKeeperSession.getInstance().init();
+    	ZooKeeperSession.getInstance().loadData(UserService.class.getName());
+    	ZooKeeperSession.getInstance().addListener(UserService.class.getName());
         RpcConsumer rpcConsumer = new RpcConsumer();
         UserService proxy = (UserService) rpcConsumer.createProxy(UserService.class, providerName);
 
